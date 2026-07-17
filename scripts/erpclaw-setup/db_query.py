@@ -44,7 +44,7 @@ if not _lib_found:
     }))
     sys.exit(1)
 
-from erpclaw_lib.db import get_connection, ensure_db_exists, DEFAULT_DB_PATH
+from erpclaw_lib.db import get_connection, ensure_db_exists, DEFAULT_DB_PATH, get_dialect
 from erpclaw_lib.decimal_utils import to_decimal
 from erpclaw_lib.validation import check_input_lengths
 from erpclaw_lib.response import ok, err, row_to_dict
@@ -2983,9 +2983,15 @@ def main():
             err(str(e))
         return
 
-    # Connect to database
-    db_path = args.db_path or DEFAULT_DB_PATH
-    ensure_db_exists(db_path)
+    # Connect to database. On PostgreSQL, leave db_path as None (unless the
+    # caller passed --db-path explicitly) so get_connection() resolves the
+    # server from ERPCLAW_DB_URL / ERPCLAW_DB_PATH instead of falling through
+    # to the SQLite default path.
+    if get_dialect() == "postgresql":
+        db_path = args.db_path
+    else:
+        db_path = args.db_path or DEFAULT_DB_PATH
+        ensure_db_exists(db_path)
     conn = get_connection(db_path)
 
     try:

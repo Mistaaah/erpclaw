@@ -20,7 +20,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 # Add shared lib to path
 try:
     sys.path.insert(0, os.path.join(os.path.expanduser(os.environ.get("ERPCLAW_HOME", "~/.openclaw/erpclaw")), "lib"))
-    from erpclaw_lib.db import get_connection, ensure_db_exists, DEFAULT_DB_PATH
+    from erpclaw_lib.db import get_connection, ensure_db_exists, DEFAULT_DB_PATH, get_dialect
     from erpclaw_lib.decimal_utils import to_decimal, round_currency
     from erpclaw_lib.naming import get_next_name
     from erpclaw_lib.gl_posting import insert_gl_entries, reverse_gl_entries
@@ -4631,8 +4631,11 @@ def main():
     check_input_lengths(args)
 
     # --- Database connection ---
-    db_path = args.db_path or DEFAULT_DB_PATH
-    ensure_db_exists(db_path)
+    if get_dialect() == "postgresql":
+        db_path = args.db_path
+    else:
+        db_path = args.db_path or DEFAULT_DB_PATH
+        ensure_db_exists(db_path)
     conn = get_connection(db_path)
 
     # Dependency check
