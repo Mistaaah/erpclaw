@@ -9,9 +9,11 @@ import importlib
 import importlib.util
 import os
 import sys
+from urllib.parse import urlparse
 
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, RevocationOptions
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import AnyHttpUrl
 
 from oauth_provider import ERPClawOAuthProvider
@@ -34,6 +36,7 @@ tool_router = importlib.import_module(f"{_PKG}.tool_router")
 
 def build_mcp() -> FastMCP:
     issuer_url = os.environ["MCP_PUBLIC_URL"].rstrip("/")
+    host = urlparse(issuer_url).netloc
 
     mcp = FastMCP(
         name="erpclaw",
@@ -53,6 +56,10 @@ def build_mcp() -> FastMCP:
                 default_scopes=["erpclaw"],
             ),
             revocation_options=RevocationOptions(enabled=True),
+        ),
+        transport_security=TransportSecuritySettings(
+            allowed_hosts=[host],
+            allowed_origins=[issuer_url],
         ),
     )
 
