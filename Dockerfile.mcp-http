@@ -9,6 +9,17 @@ COPY scripts scripts
 COPY mcp mcp
 COPY mcp-http mcp-http
 
+# Every domain script (scripts/erpclaw-*/db_query.py) imports erpclaw_lib from
+# $ERPCLAW_HOME/lib. Unset, that resolves to ~/.openclaw/erpclaw/lib, which does
+# not exist in this image, so the import block falls through to its "ERPClaw
+# foundation not installed" error and no GL/journal action can run. Point
+# ERPCLAW_HOME at an install root whose lib/ is the copy bundled above. The
+# router os.execvp()s into those scripts, so its own sys.path insert cannot
+# carry across — this has to be environment, not process state.
+ENV ERPCLAW_HOME=/app/.erpclaw
+RUN mkdir -p /app/.erpclaw/modules \
+    && ln -s /app/scripts/erpclaw-setup/lib /app/.erpclaw/lib
+
 ENV ERPCLAW_DB_DIALECT=postgresql
 ENV PORT=8080
 EXPOSE 8080
