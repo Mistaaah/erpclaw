@@ -1,4 +1,5 @@
-mcp>=1.26.0
+# Capped below 2.0: mcp 2.0.0 removed mcp.server.fastmcp, which tools.py imports.
+mcp>=1.26.0,<2
 starlette>=0.40.0
 uvicorn[standard]>=0.34.0
 psycopg2-binary>=2.9.0
