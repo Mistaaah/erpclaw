@@ -79,8 +79,17 @@ def _validate_lines(lines: list[dict]) -> tuple[Decimal, Decimal]:
         if "account_id" not in line or not line["account_id"]:
             raise ValueError(f"Line {i+1}: account_id is required")
 
-        debit = to_decimal(line.get("debit", "0"))
-        credit = to_decimal(line.get("credit", "0"))
+        # to_decimal rejects float outright (precision loss). JSON clients —
+        # notably the MCP connector — naturally send 476.61 as a JSON number,
+        # which json.loads gives us as a float, so that TypeError is reachable
+        # from ordinary input. Callers only catch ValueError, so re-raise as one
+        # rather than letting it hit the catch-all in main() and surface as
+        # "An unexpected error occurred" with the actionable text lost to stderr.
+        try:
+            debit = to_decimal(line.get("debit", "0"))
+            credit = to_decimal(line.get("credit", "0"))
+        except TypeError as e:
+            raise ValueError(f"Line {i+1}: {e}") from e
 
         if debit < 0 or credit < 0:
             raise ValueError(f"Line {i+1}: debit and credit must be >= 0")

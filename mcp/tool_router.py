@@ -87,6 +87,16 @@ def dispatch(action_name: str, args: dict, user_confirmed: bool = False) -> dict
         return {"status": "error", "action": action_name,
                 "error": f"Failed to spawn router subprocess: {e}"}
 
+    # The domain scripts write their real diagnostics to stderr and then return a
+    # deliberately generic message on stdout (e.g. "An unexpected error
+    # occurred"). capture_output swallowed that stderr entirely, so a crash was
+    # undiagnosable from either the client or the container logs. Echo it to our
+    # own stderr — server-side logs only, never into the tool result, since the
+    # generic client-facing message is an intentional boundary.
+    child_stderr = (proc.stderr or "").strip()
+    if child_stderr:
+        print(f"[erpclaw_action] {action_name} stderr: {child_stderr}", file=sys.stderr, flush=True)
+
     stdout = (proc.stdout or "").strip()
     # The router emits JSON to stdout for both success and error. Parse it and
     # return verbatim. Reconcile against the exit code so a non-zero exit is
