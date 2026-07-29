@@ -138,12 +138,15 @@ class ERPClawOAuthProvider(OAuthAuthorizationServerProvider):
 
             access_token = secrets.token_urlsafe(32)
             refresh_token = secrets.token_urlsafe(32)
-            expires_at = int(time.time()) + ACCESS_TOKEN_TTL_SECONDS
+            now = int(time.time())
+            expires_at = now + ACCESS_TOKEN_TTL_SECONDS
+            refresh_expires_at = now + REFRESH_TOKEN_TTL_SECONDS
 
             cur.execute(
                 """INSERT INTO oauth_token
-                   (access_token, refresh_token, client_id, user_id, scopes, expires_at)
-                   VALUES (%s, %s, %s, %s, %s, %s)""",
+                   (access_token, refresh_token, client_id, user_id, scopes,
+                    expires_at, refresh_expires_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                 (
                     access_token,
                     refresh_token,
@@ -151,6 +154,7 @@ class ERPClawOAuthProvider(OAuthAuthorizationServerProvider):
                     user_id,
                     json.dumps(authorization_code.scopes),
                     expires_at,
+                    refresh_expires_at,
                 ),
             )
             cur.execute("DELETE FROM oauth_auth_code WHERE code = %s", (authorization_code.code,))
@@ -185,7 +189,10 @@ class ERPClawOAuthProvider(OAuthAuthorizationServerProvider):
                 token=row["refresh_token"],
                 client_id=row["client_id"],
                 scopes=json.loads(row["scopes"] or "[]"),
-                expires_at=row["expires_at"],
+                # NOT row["expires_at"] — that is the access token's expiry.
+                # Using it here expired the refresh token after 1 hour, which
+                # broke the connector permanently on the first refresh.
+                expires_at=row["refresh_expires_at"],
             )
         finally:
             conn.close()
@@ -209,15 +216,26 @@ class ERPClawOAuthProvider(OAuthAuthorizationServerProvider):
 
             new_access = secrets.token_urlsafe(32)
             new_refresh = secrets.token_urlsafe(32)
-            expires_at = int(time.time()) + ACCESS_TOKEN_TTL_SECONDS
+            now = int(time.time())
+            expires_at = now + ACCESS_TOKEN_TTL_SECONDS
+            refresh_expires_at = now + REFRESH_TOKEN_TTL_SECONDS
             use_scopes = scopes or json.loads(row["scopes"] or "[]")
 
             cur.execute("DELETE FROM oauth_token WHERE refresh_token = %s", (refresh_token.token,))
             cur.execute(
                 """INSERT INTO oauth_token
-                   (access_token, refresh_token, client_id, user_id, scopes, expires_at)
-                   VALUES (%s, %s, %s, %s, %s, %s)""",
-                (new_access, new_refresh, client.client_id, row["user_id"], json.dumps(use_scopes), expires_at),
+                   (access_token, refresh_token, client_id, user_id, scopes,
+                    expires_at, refresh_expires_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                (
+                    new_access,
+                    new_refresh,
+                    client.client_id,
+                    row["user_id"],
+                    json.dumps(use_scopes),
+                    expires_at,
+                    refresh_expires_at,
+                ),
             )
             conn.commit()
 

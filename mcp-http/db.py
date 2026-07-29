@@ -49,14 +49,21 @@ CREATE TABLE IF NOT EXISTS oauth_auth_code (
 );
 
 CREATE TABLE IF NOT EXISTS oauth_token (
-    access_token   TEXT PRIMARY KEY,
-    refresh_token  TEXT UNIQUE,
-    client_id      TEXT NOT NULL,
-    user_id        TEXT NOT NULL,
-    scopes         TEXT,
-    expires_at     BIGINT,
-    created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    access_token       TEXT PRIMARY KEY,
+    refresh_token      TEXT UNIQUE,
+    client_id          TEXT NOT NULL,
+    user_id            TEXT NOT NULL,
+    scopes             TEXT,
+    expires_at         BIGINT,
+    refresh_expires_at BIGINT,
+    created_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Added after initial deploy: refresh tokens previously reused the access
+-- token's expires_at, so they died after one hour. Existing rows are left
+-- NULL (= no expiry) so already-connected clients keep working; they pick up
+-- a real refresh expiry on their next refresh.
+ALTER TABLE oauth_token ADD COLUMN IF NOT EXISTS refresh_expires_at BIGINT;
 """
 
 
